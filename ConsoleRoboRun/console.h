@@ -1,4 +1,15 @@
 #pragma once
+void menu();
+void manualOperation();
+void main();
+void readBatteryStats(); 
+void coordinateInput();
+void clrscr();
+void serialWrite();
+void serialRead();
+
+
+
 typedef struct _DCB {
 	DWORD DCBlength;
 	DWORD BaudRate;

@@ -15,15 +15,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ConsoleRoboRun.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ConsoleRX.cpp">
+    <ClCompile Include="console.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ConsoleRoboRun.h">
+    <ClInclude Include="console.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
