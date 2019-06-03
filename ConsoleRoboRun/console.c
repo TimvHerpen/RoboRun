@@ -15,18 +15,78 @@
 #define KEY_1 49
 #define KEY_2 50
 #define KEY_3 51
-#define KEY_Q 81
+#define KEY_Q 113
 
 void clrscr() {
 	system("cls");
 }
 
-void serialWrite() {
+HANDLE serialInit() {
+	//		Init variables
+	extern HANDLE hSerial;
+	DCB dcbSerialParams = { 0 };
+	COMMTIMEOUTS timeout = { 0 };
 
+	//		Timeout values
+	timeout.ReadIntervalTimeout = 50;
+	timeout.ReadTotalTimeoutConstant = 50;
+	timeout.ReadTotalTimeoutMultiplier = 10;
+	timeout.WriteTotalTimeoutConstant = 50;
+	timeout.WriteTotalTimeoutMultiplier = 10;
+
+	//		Handle
+	hSerial = CreateFile("\\\\.\\COM8",	// Port name
+		GENERIC_READ | GENERIC_WRITE,	// Read/Write
+		0,								// No Sharing
+		NULL,							// No Security
+		OPEN_EXISTING,					// Open existing port only
+		FILE_ATTRIBUTE_NORMAL,          // Non Overlapped I/O
+		NULL);							// Null for Comm Devices
+	//		Setup Com Port
+	if (hSerial == INVALID_HANDLE_VALUE) {
+		printf("Error opening serial port");
+
+		if (!SetCommTimeouts(hSerial, &timeout)) {
+			//An error occurred
+		}
+
+		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
+			printf("Serial port does not exist.");
+		}
+
+	}
+	else {
+		printf("Opening serial port successful\n");
+		menu(hSerial);
+	}
+
+
+	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+	if (!GetCommState(hSerial, &dcbSerialParams)) {
+		//error getting state
+	}
+	dcbSerialParams.BaudRate = CBR_9600;
+	dcbSerialParams.ByteSize = 8;
+	dcbSerialParams.StopBits = ONESTOPBIT;
+	dcbSerialParams.Parity = NOPARITY;
+	if (!SetCommState(hSerial, &dcbSerialParams)) {
+		//error setting serial port state
+	}
+	return hSerial;
 }
 
-void serialRead() {
+void serialWrite(char txchar) {
+	BOOL bWriteRC;
+	static DWORD iBytesWritten;
+	bWriteRC = WriteFile(*hSerial, &txchar, 1, &iBytesWritten, NULL);
+}
 
+char serialRead(HANDLE *hSerial) {
+	char rxchar;
+	BOOL bReadRC;
+	static DWORD iBytesRead;
+	bReadRC = ReadFile(*hSerial, &rxchar, 1, &iBytesRead, NULL);
+	return rxchar;
 }
 
 void getInput() {
@@ -54,21 +114,20 @@ void manualOperation() {
 	char msg[20];
 	do {
 		key = _getch();
-		if (key == 0 || key == -32) {
-			key = _getch(); //key code has two keys - read the second one
+		if (key == 0xE0 || key == 0) {
+			key = 256 + _getch(); //key code has two keys - read the second one
 			switch (key) {
-			case KEY_UP: memcpy(msg, "UP", sizeof(msg)); break;
-			case KEY_DOWN: memcpy(msg, "DOWN", sizeof(msg)); break;
-			case KEY_LEFT: memcpy(msg, "LEFT", sizeof(msg)); break;
-			case KEY_RIGHT: memcpy(msg, "RIGHT", sizeof(msg)); break;
-			default:  memcpy(msg, "unknown key", sizeof(msg)); break;
+			case KEY_UP: serialWrite(*hSerial, '^'); break;
+			case KEY_DOWN: serialWrite(*hSerial, 'v'); break;
+			case KEY_LEFT: serialWrite(*hSerial, '<'); break;
+			case KEY_RIGHT: serialWrite(*hSerial, '>'); break;
 			}
-			printf("Key: %s", msg);
+			printf("Use your arrow keys to move the robot, or press Q to exit.");
 			putchar('\n');
 			continue;
 		}
 		else {
-			printf("Key: %c", key);
+			printf("Use your arrow keys to move the robot, or press Q to exit.");
 			putchar('\n');
 		}
 	} while (key != KEY_Q);
@@ -91,56 +150,7 @@ void menu() {
 }
 
 int main() {
-	//		Init variables
-	HANDLE hSerial;
-	DCB dcbSerialParams = { 0 };
-	COMMTIMEOUTS timeout = { 0 };
-	
-	//		Timeout values
-	timeout.ReadIntervalTimeout = 50;
-	timeout.ReadTotalTimeoutConstant = 50;
-	timeout.ReadTotalTimeoutMultiplier = 10;
-	timeout.WriteTotalTimeoutConstant = 50;
-	timeout.WriteTotalTimeoutMultiplier = 10;
-
-	//		Handle
-	hSerial = CreateFile("\\\\.\\COM8",	// Port name
-		GENERIC_READ | GENERIC_WRITE,	// Read/Write
-		0,								// No Sharing
-		NULL,							// No Security
-		OPEN_EXISTING,					// Open existing port only
-		FILE_ATTRIBUTE_NORMAL,          // Non Overlapped I/O
-		NULL);							// Null for Comm Devices
-	//		Setup Com Port
-	if (hSerial == INVALID_HANDLE_VALUE) {
-		printf("Error opening serial port");
-
-		if (!SetCommTimeouts(hSerial, &timeout)){
-			//An error occurred
-		}
-
-		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
-			printf("serial port does not exist.");
-		}
-
-	}
-	else {
-		printf("Opening serial port successful\n");
-		menu();
-	}
-	
-
-	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-	if (!GetCommState(hSerial, &dcbSerialParams)) {
-		//error getting state
-	}
-	dcbSerialParams.BaudRate = CBR_9600;
-	dcbSerialParams.ByteSize = 8;
-	dcbSerialParams.StopBits = ONESTOPBIT;
-	dcbSerialParams.Parity = NOPARITY;
-	if (!SetCommState(hSerial, &dcbSerialParams)) {
-		//error setting serial port state
-	}
+	HANDLE hSerial = serialInit();
 
 	CloseHandle(hSerial);							//Closing the Serial Port
 	return 0;

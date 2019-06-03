@@ -6,7 +6,8 @@ void readBatteryStats();
 void coordinateInput();
 void clrscr();
 void serialWrite();
-void serialRead();
+char serialRead();
+handle serialInit();
 
 
 
