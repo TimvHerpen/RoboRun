@@ -1,6 +1,9 @@
-// ConsoleRoboRun.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+/***********************************\
+		  Roborun Console
+		   4 Guys 1 Robot
+\***********************************/
 
+//		Libraries
 #include <windows.h>
 #include <conio.h>
 #include <stdio.h>
@@ -23,12 +26,15 @@
 #define KEY_D 100
 #define KEY_E 101
 
+//		Init Variables
 HANDLE hSerial;
 char comPortNumber = "2";
 char serialPort = "\\\\.\\COM";
 
+
+//		Functions
 void clrscr() {
-	system("cls");
+	system("cls");					// Since C is not aware of the command prompt having a screen, we use this Windows API feature to execute a cmd command that clears the screen.
 }
 
 void serialInit() {
@@ -54,48 +60,50 @@ void serialInit() {
 		NULL);							// Null for Comm Devices
 	//		Setup Com Port
 	if (hSerial == INVALID_HANDLE_VALUE) {
-		printf("Error opening serial port");
+		printf("Er is een fout opgetreden bij het openen van de COM Poort.\n");
 
 		if (!SetCommTimeouts(hSerial, &timeout)) {
-			//An error occurred
+			//		Connection Lost
+			printf("Verbinding met de robot is verloren.\n");
 		}
 
 		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
-			printf("Serial port does not exist.");
+			//		COM Port not found
+			printf("De ingevoerde COM Poort bestaat niet.\n");
 		}
 
 	}
 	else {
 		printf("COM Poort geopend, druk op de any toets om door te gaan.\n");
+		delay("2000");
 		menu();
 	}
 
-
+	//		Set COM Port settings in DCB Struct.
 	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 	if (!GetCommState(hSerial, &dcbSerialParams)) {
-		//error getting state
+		//		Error getting state
 	}
 	dcbSerialParams.BaudRate = CBR_9600;
 	dcbSerialParams.ByteSize = 8;
 	dcbSerialParams.StopBits = ONESTOPBIT;
 	dcbSerialParams.Parity = NOPARITY;
 	if (!SetCommState(hSerial, &dcbSerialParams)) {
-		//error setting serial port state
+		//		Error setting serial port state
 	}
-	//return hSerial;
 }
 
 void serialWrite(char txchar) {
 	BOOL bWriteRC;
 	static DWORD iBytesWritten;
-	bWriteRC = WriteFile(hSerial, &txchar, 1, &iBytesWritten, NULL);
+	bWriteRC = WriteFile(hSerial, &txchar, 1, &iBytesWritten, NULL);	// Writes to COM Port
 }
 
 char serialRead(unsigned int bytes) {
 	char rxchar[4];
 	BOOL bReadRC;
 	static DWORD iBytesRead;
-	bReadRC = ReadFile(hSerial, &rxchar, 4 , &iBytesRead, NULL);
+	bReadRC = ReadFile(hSerial, &rxchar, 4 , &iBytesRead, NULL);		// Reads from COM Port
 	return rxchar;
 }
 
@@ -128,26 +136,26 @@ void coordinateInput() {
 
 void manualOperation() {
 	clrscr();
-	serialWrite('h');
+	serialWrite('h');									// Initiates manual mode on the robot.
 	printf("Gebruik WASD of de numpad pijltjestoetsen. Druk op Q om terug te gaan naar het hoofdmenu.\n");
 	char key;
 	char msg[20];
 	do {
 		key = _getch();
 		switch (key) {
-		case KEY_W: serialWrite('w'); break;
-		case KEY_S: serialWrite('f'); break;
-		case KEY_D: serialWrite('d'); break;
-		case KEY_A: serialWrite('a'); break;
+		case KEY_W: serialWrite('w'); break;			// Makes the robot go forward when W is pressed.
+		case KEY_S: serialWrite('f'); break;			// Makes the robot go backwards when S is pressed.
+		case KEY_D: serialWrite('d'); break;			// Makes the robot turn clockwise when D is pressed.
+		case KEY_A: serialWrite('a'); break;			// Makes the robot turn counter-clockwise when A is pressed.
 			//case KEY_Q: {serialWrite('q'); active != active; break; }
 		}
 		if (key == 0xE0 || key == 0) {
 			key = 256 + _getch(); //key code has two keys - read the second one
 			switch (key) {
-			case KEY_UP: serialWrite('w'); break;
-			case KEY_DOWN: serialWrite('f'); break;
-			case KEY_LEFT: serialWrite('d'); break;
-			case KEY_RIGHT: serialWrite('a'); break;
+			case KEY_UP: serialWrite('w'); break;		// Makes the robot go forward when Arrow_up is pressed.
+			case KEY_DOWN: serialWrite('f'); break;		// Makes the robot go backwards when Arrow_down is pressed.
+			case KEY_LEFT: serialWrite('d'); break;		// Makes the robot turn counter-clockwise when Arrow_left is pressed.
+			case KEY_RIGHT: serialWrite('a'); break;	// Makes the robot turn clockwise when Arrow_right is pressed.
 			}
 			continue;
 		}
@@ -169,11 +177,11 @@ void menu() {
 			key = _getch();
 
 			switch (key) {
-			case KEY_1: readBatteryStats(); done = 0; break;
-			case KEY_2: coordinateInput(); done = 0; break;
-			case KEY_3: manualOperation(); done = 0; break;
-			case ESC: done = 0; break;
-			case KEY_S: serialWrite('s);
+			case KEY_1: readBatteryStats(); done = 0; break;		// Displays Battery Stats when 1 is pressed.
+			case KEY_2: coordinateInput(); done = 0; break;			// Let the user input a coordinate when 2 is pressed.
+			case KEY_3: manualOperation(); done = 0; break;			// Let the user move the robot manually when 3 is pressed.
+			case ESC: done = 0; break;								// Exits console when ESC is pressed.
+			case KEY_S: serialWrite('s');							// Let the Robot stop immediately when S is pressed.
 			default: printf("Geen geldige keus, probeer opnieuw.\n"); break;
 			}
 		} while (done);
@@ -181,8 +189,8 @@ void menu() {
 }
 
 int main() {
-	serialInit();
+	serialInit();				//Initialize Serial Communication
 
-	CloseHandle(hSerial);							//Closing the Serial Port
+	CloseHandle(hSerial);		//Closing the Serial Port
 	return 0;
 }
