@@ -112,7 +112,7 @@ void serialWrite(char txchar) {
 	bWriteRC = WriteFile(hSerial, &txchar, 1, &iBytesWritten, NULL);	// Writes to COM Port
 }
 
-char serialRead(unsigned int bytes) {
+char serialRead() {
 	char rxchar;
 	BOOL bReadRC;
 	static DWORD iBytesRead;
@@ -133,7 +133,7 @@ void readBatteryStats() {
 		int batteryLevel;
 		for (int i = 0; i < 4; i++) {
 			if (i == 0) { serialWrite('b'); }
-			msg[i] = serialRead(1);
+			msg[i] = serialRead();
 		}
 		batteryLevel = atoi(msg);
 		batteryLevel = batteryLevel - 3650;
@@ -239,7 +239,7 @@ void menu() {
 			case KEY_2: coordinateInput(); done = 0; break;			// Let the user input a coordinate when 2 is pressed.
 			case KEY_3: manualOperation(); done = 0; break;			// Let the user move the robot manually when 3 is pressed.
 			case ESC: done = 0; break;								// Exits console when ESC is pressed.
-			case KEY_S: serialWrite('s');							// Let the Robot stop immediately when S is pressed.
+			case KEY_S: serialWrite('s'); break;					// Let the Robot stop immediately when S is pressed.
 			default: printf("Geen geldige keus, probeer opnieuw.\n"); break;
 			}
 		} while (done);
