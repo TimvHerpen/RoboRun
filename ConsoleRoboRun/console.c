@@ -8,6 +8,7 @@
 #include <conio.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "console.h"
 
 //		Key definitions by ascii number
@@ -25,16 +26,22 @@
 #define KEY_S 115
 #define KEY_D 100
 #define KEY_E 101
+#define KEY_Y 121
 
 //		Init Variables
 HANDLE hSerial;
-char comPortNumber = "2";
-char serialPort = "\\\\.\\COM";
+char comPortNumber[1] = "1";
+char serialPort[9] = "\\\\.\\COM";
 
 
 //		Functions
 void clrscr() {
 	system("cls");					// Since C is not aware of the command prompt having a screen, we use this Windows API feature to execute a cmd command that clears the screen.
+}
+
+void anyKey() {
+	printf("Druk op de any toets om door te gaan.\n");
+	_getch();
 }
 
 void serialInit() {
@@ -51,7 +58,7 @@ void serialInit() {
 	timeout.WriteTotalTimeoutMultiplier = 10;
 
 	//		Handle
-	hSerial = CreateFile("\\\\.\\COM2",	// Port name
+	hSerial = CreateFile(serialPort,	// Port name
 		GENERIC_READ | GENERIC_WRITE,	// Read/Write
 		0,								// No Sharing
 		NULL,							// No Security
@@ -75,7 +82,6 @@ void serialInit() {
 	}
 	else {
 		printf("COM Poort geopend, druk op de any toets om door te gaan.\n");
-		delay("2000");
 		menu();
 	}
 
@@ -108,36 +114,77 @@ char serialRead(unsigned int bytes) {
 }
 
 void getComPort() {
-	strcat(serialPort, comPortNumber);
+	printf("Voer het nummer van de COM Poort in.\n");
+	comPortNumber[0] = _getch();
+	strcat_s(serialPort, 9, comPortNumber);
+	printf("%s\n", serialPort);
 }
 
 void readBatteryStats() {
 	clrscr();
+	char msg[4];
 	char batteryLevel;
-
 	serialWrite('b');
-	batteryLevel = serialRead(4);
-	batteryLevel = batteryLevel - 4000;
-	batteryLevel = batteryLevel / 10;
-	printf("De batterij is nog %c %c vol", batteryLevel, '%');
+	for (int i = 0; i < 4; i++) {
+		msg[i] = serialRead(1);
+	}
+	batteryLevel = atoi(msg) - 3600;
+	batteryLevel = batteryLevel / 19;
+	printf("De batterij is nog %c%c vol\n", batteryLevel, '%');
+	anyKey();
 
 }
 
 void coordinateInput() {
-	char coord[10][3];
+	char x[10], y[10];
+	unsigned int coordCount = 0;
+	int sendCoord = 0;
+	char key;
 	clrscr();
-	printf("Voer hier een coordinaat in waar de robot zich naar toe moet bevinden:\n");
-	fgets(coord, 3, stdin);
-	printf("Je hebt de volgende coordinaat ingegeven:\n");
-	printf("%s\n",coord);
+	printf("Voer hier de coordina(a)t(en) in waar de robot zich naar toe moet bevinden.");
+	do {
+		for (int i = 0; i < 10;) {
+			printf("\nX=");
+			x[i] = _getch();			// Let user input X coord.
+			putchar(x[i]);
+			printf("\nY=");
+			y[i] = _getch();			// Let user input Y coord.
+			coordCount++;
+			putchar(y[i]);
+			printf("\nJe hebt de volgende coordinaat ingegeven:\n");
+			printf("Coord %i: (%c,%c)\n", coordCount, x[i], y[i]);
+			printf("Druk op E om nog een coordinaat in te voeren, druk op Y om de coordinaten te versturen, of druk op Q om de ingevoerde coordinaten te verwijderen.\n");
+			key = _getch();				// Check for confirmation.
+			switch (key) {}
+			if (key == KEY_E) {
+				i++;
+			}
+			else if (key == KEY_Y) {
+				sendCoord++;
+				break;
+			}
+			else if (key == KEY_Q) {
+				break;
+				coordinateInput();
+			}
+		}
+	} while (!sendCoord);
 	
-	
+	if (sendCoord) {
+		serialWrite('c');				// Activates coordinate input on the robot.
+		for (int i = 0; i < coordCount; i++) {
+			serialWrite(x[i]);
+			serialWrite(y[i]);
+		}
+		serialWrite('y');				// Confirms sent coordinates.
+	}
+	anyKey();
 }
 
 void manualOperation() {
 	clrscr();
 	serialWrite('h');									// Initiates manual mode on the robot.
-	printf("Gebruik WASD of de numpad pijltjestoetsen. Druk op Q om terug te gaan naar het hoofdmenu.\n");
+	printf("Gebruik WASD of de numpad pijltjestoetsen om de robot te besturen.\nDruk op E voor een noodstop.\nDruk op Q om terug te gaan naar het hoofdmenu.\n");
 	char key;
 	char msg[20];
 	do {
@@ -147,10 +194,10 @@ void manualOperation() {
 		case KEY_S: serialWrite('f'); break;			// Makes the robot go backwards when S is pressed.
 		case KEY_D: serialWrite('d'); break;			// Makes the robot turn clockwise when D is pressed.
 		case KEY_A: serialWrite('a'); break;			// Makes the robot turn counter-clockwise when A is pressed.
-			//case KEY_Q: {serialWrite('q'); active != active; break; }
+		case KEY_E: serialWrite('s');
 		}
 		if (key == 0xE0 || key == 0) {
-			key = 256 + _getch(); //key code has two keys - read the second one
+			key = 256 + _getch();						// Key has two codes - read the second one.
 			switch (key) {
 			case KEY_UP: serialWrite('w'); break;		// Makes the robot go forward when Arrow_up is pressed.
 			case KEY_DOWN: serialWrite('f'); break;		// Makes the robot go backwards when Arrow_down is pressed.
@@ -163,6 +210,7 @@ void manualOperation() {
 			
 		}
 	} while (key != KEY_Q);
+	serialWrite('q');
 }
 
 void menu() {
@@ -189,8 +237,9 @@ void menu() {
 }
 
 int main() {
-	serialInit();				//Initialize Serial Communication
+	getComPort();				// Asks user for the COM Port number
+	serialInit();				// Initialize Serial Communication
 
-	CloseHandle(hSerial);		//Closing the Serial Port
+	CloseHandle(hSerial);		// Closing the Serial Port
 	return 0;
 }

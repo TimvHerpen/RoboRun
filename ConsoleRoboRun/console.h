@@ -8,3 +8,5 @@ void clrscr();
 void serialWrite();
 char serialRead(unsigned int bytes);
 void serialInit();
+void getComPort();
+void anyKey();
