@@ -49,6 +49,7 @@ void serialInit() {
 	extern HANDLE hSerial;
 	DCB dcbSerialParams = { 0 };
 	COMMTIMEOUTS timeout = { 0 };
+	DWORD dwEventMask;
 
 	//		Timeout values
 	timeout.ReadIntervalTimeout = 50;
@@ -65,7 +66,26 @@ void serialInit() {
 		OPEN_EXISTING,					// Open existing port only
 		FILE_ATTRIBUTE_NORMAL,          // Non Overlapped I/O
 		NULL);							// Null for Comm Devices
-	//		Setup Com Port
+
+	//		Set COM Port settings in DCB Struct.
+	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+	if (!GetCommState(hSerial, &dcbSerialParams)) {
+		//		Error getting state
+	}
+	dcbSerialParams.BaudRate = CBR_9600;
+	dcbSerialParams.ByteSize = 8;
+	dcbSerialParams.StopBits = ONESTOPBIT;
+	dcbSerialParams.Parity = NOPARITY;
+	if (!SetCommState(hSerial, &dcbSerialParams)) {
+		//		Error setting serial port state
+	}
+	
+	//		Recieve parameters
+
+	SetCommMask(hSerial, EV_RXCHAR);	//Configure Windows to Monitor the serial device for Character Reception
+
+
+	//		Error handler
 	if (hSerial == INVALID_HANDLE_VALUE) {
 		printf("Er is een fout opgetreden bij het openen van de COM Poort.\n");
 
@@ -84,19 +104,6 @@ void serialInit() {
 		printf("COM Poort geopend, druk op de any toets om door te gaan.\n");
 		menu();
 	}
-
-	//		Set COM Port settings in DCB Struct.
-	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-	if (!GetCommState(hSerial, &dcbSerialParams)) {
-		//		Error getting state
-	}
-	dcbSerialParams.BaudRate = CBR_9600;
-	dcbSerialParams.ByteSize = 8;
-	dcbSerialParams.StopBits = ONESTOPBIT;
-	dcbSerialParams.Parity = NOPARITY;
-	if (!SetCommState(hSerial, &dcbSerialParams)) {
-		//		Error setting serial port state
-	}
 }
 
 void serialWrite(char txchar) {
@@ -106,10 +113,10 @@ void serialWrite(char txchar) {
 }
 
 char serialRead(unsigned int bytes) {
-	char rxchar[4];
+	char rxchar;
 	BOOL bReadRC;
 	static DWORD iBytesRead;
-	bReadRC = ReadFile(hSerial, &rxchar, 4 , &iBytesRead, NULL);		// Reads from COM Port
+	bReadRC = ReadFile(hSerial, &rxchar, sizeof(rxchar) , &iBytesRead, NULL);		// Reads from COM Port
 	return rxchar;
 }
 
@@ -121,24 +128,25 @@ void getComPort() {
 }
 
 void readBatteryStats() {
-	clrscr();
-	char msg[4];
-	char batteryLevel;
-	serialWrite('b');
-	for (int i = 0; i < 4; i++) {
-		msg[i] = serialRead(1);
-	}
-	batteryLevel = atoi(msg) - 3600;
-	batteryLevel = batteryLevel / 19;
-	printf("De batterij is nog %c%c vol\n", batteryLevel, '%');
-	anyKey();
-
+		clrscr();
+		char msg[5] = { '0','0','0','0','\0' };
+		int batteryLevel;
+		for (int i = 0; i < 4; i++) {
+			if (i == 0) { serialWrite('b'); }
+			msg[i] = serialRead(1);
+		}
+		batteryLevel = atoi(msg);
+		batteryLevel = batteryLevel - 3650;
+		batteryLevel = batteryLevel / 14;
+		printf("De batterij is nog %d%c vol\n", batteryLevel, '%');
+		anyKey();
 }
 
 void coordinateInput() {
 	char x[10], y[10];
 	unsigned int coordCount = 0;
 	int sendCoord = 0;
+	int restart = 0;
 	char key;
 	clrscr();
 	printf("Voer hier de coordina(a)t(en) in waar de robot zich naar toe moet bevinden.");
@@ -155,7 +163,6 @@ void coordinateInput() {
 			printf("Coord %i: (%c,%c)\n", coordCount, x[i], y[i]);
 			printf("Druk op E om nog een coordinaat in te voeren, druk op Y om de coordinaten te versturen, of druk op Q om de ingevoerde coordinaten te verwijderen.\n");
 			key = _getch();				// Check for confirmation.
-			switch (key) {}
 			if (key == KEY_E) {
 				i++;
 			}
@@ -164,19 +171,23 @@ void coordinateInput() {
 				break;
 			}
 			else if (key == KEY_Q) {
+				serialWrite('q');
+				restart++;
 				break;
-				coordinateInput();
 			}
 		}
-	} while (!sendCoord);
+	} while (!sendCoord && !restart || key == !ESC);
 	
 	if (sendCoord) {
 		serialWrite('c');				// Activates coordinate input on the robot.
-		for (int i = 0; i < coordCount; i++) {
+		for (unsigned int i = 0; i < coordCount; i++) {
 			serialWrite(x[i]);
 			serialWrite(y[i]);
 		}
 		serialWrite('y');				// Confirms sent coordinates.
+	}
+	if (restart) {
+		coordinateInput();
 	}
 	anyKey();
 }
@@ -186,7 +197,6 @@ void manualOperation() {
 	serialWrite('h');									// Initiates manual mode on the robot.
 	printf("Gebruik WASD of de numpad pijltjestoetsen om de robot te besturen.\nDruk op E voor een noodstop.\nDruk op Q om terug te gaan naar het hoofdmenu.\n");
 	char key;
-	char msg[20];
 	do {
 		key = _getch();
 		switch (key) {
@@ -220,7 +230,7 @@ void menu() {
 	while (key != ESC) {
 		done = 1;
 		clrscr();
-		printf("Maak een keuze uit de volgende opties:\n1) Batterij status\n2) Coordinaat invoeren\n3) Handmatige Besturing\nJe kan terugkeren naar dit menu met ESC.\n");
+		printf("Maak een keuze uit de volgende opties:\n1) Batterij status\n2) Coordinaat invoeren\n3) Handmatige Besturing\nDruk op ESC om de console te sluiten.\n");
 		do {
 			key = _getch();
 
