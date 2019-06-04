@@ -49,7 +49,6 @@ void serialInit() {
 	extern HANDLE hSerial;
 	DCB dcbSerialParams = { 0 };
 	COMMTIMEOUTS timeout = { 0 };
-	DWORD dwEventMask;
 
 	//		Timeout values
 	timeout.ReadIntervalTimeout = 50;
@@ -88,7 +87,7 @@ void serialInit() {
 	//		Error handler
 	if (hSerial == INVALID_HANDLE_VALUE) {
 		printf("Er is een fout opgetreden bij het openen van de COM Poort.\n");
-
+		anyKey();
 		if (!SetCommTimeouts(hSerial, &timeout)) {
 			//		Connection Lost
 			printf("Verbinding met de robot is verloren.\n");
@@ -124,7 +123,6 @@ void getComPort() {
 	printf("Voer het nummer van de COM Poort in.\n");
 	comPortNumber[0] = _getch();
 	strcat_s(serialPort, 9, comPortNumber);
-	printf("%s\n", serialPort);
 }
 
 void readBatteryStats() {
